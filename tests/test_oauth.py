@@ -256,3 +256,46 @@ def test_provider_failure_never_returns_upstream_body(config):
                 assert "LEAK" not in str(error.value)
 
     asyncio.run(scenario())
+
+
+def test_metadata_does_not_offer_shared_app_to_unenrolled_origins(config):
+    async def scenario():
+        service, client = build(config, lambda req: httpx.Response(500))
+        async with client:
+            assert all(p.configured and p.deployment_allowed for p in service.metadata(ORIGIN))
+            assert not any(
+                p.deployment_allowed for p in service.metadata("https://foreign.example")
+            )
+            config.allowed_origins = ["*"]
+            assert all(p.deployment_allowed for p in service.metadata("https://foreign.example"))
+
+    asyncio.run(scenario())
+
+
+def test_bad_config_errors_hide_secret_input():
+    with pytest.raises(ValidationError) as error:
+        Settings(
+            public_url="https://bridge.example", ticket_key="SECRET-INVALID-KEY", _env_file=None
+        )
+    assert "SECRET-INVALID-KEY" not in str(error.value)
+
+
+@pytest.mark.parametrize("provider", ["google", "microsoft", "slack"])
+def test_revocation_is_explicit_and_never_exposes_provider_error(config, provider):
+    async def scenario():
+        service, client = build(
+            config,
+            lambda req: httpx.Response(
+                200 if provider == "slack" else 400,
+                json={"ok": False, "error": "invalid_grant", "error_description": "SECRET"},
+            ),
+        )
+        async with client:
+            ticket = complete(service, provider)
+            with pytest.raises(BridgeError, match="provider_grant_revoked") as refused:
+                await service.exchange(
+                    ExchangeRequest(provider=provider, ticket=ticket, code_verifier=VERIFIER)
+                )
+            assert "SECRET" not in str(refused.value)
+
+    asyncio.run(scenario())

@@ -23,8 +23,10 @@ async def health() -> dict[str, str]:
 
 
 @router.get("/v1/providers", response_model=list[ProviderStatus])
-async def providers(service: Service) -> list[ProviderStatus]:
-    return service.metadata()
+async def providers(
+    service: Service, origin: Annotated[str | None, Query(max_length=2048)] = None
+) -> list[ProviderStatus]:
+    return service.metadata(origin)
 
 
 @router.post("/v1/oauth/start", response_model=StartResponse)

@@ -10,7 +10,9 @@ from agenticos_bridge.models import Provider
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="BRIDGE_", env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_prefix="BRIDGE_", env_file=".env", extra="ignore", hide_input_in_errors=True
+    )
     public_url: str
     ticket_key: SecretStr
     google_client_id: str = ""

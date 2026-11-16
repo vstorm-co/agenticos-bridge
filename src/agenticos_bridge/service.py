@@ -39,11 +39,13 @@ class OAuthService:
         self.providers = providers
         self.tickets = tickets
 
-    def metadata(self) -> list[ProviderStatus]:
+    def metadata(self, origin: str | None = None) -> list[ProviderStatus]:
         return [
             ProviderStatus(
                 provider=p,
                 configured=bool(self.settings.credentials(p)[0]),
+                deployment_allowed=origin in self.settings.allowed_origins
+                or "*" in self.settings.allowed_origins,
                 client_id=self.settings.credentials(p)[0] or None,
                 redirect_uri=self.settings.callback(p),
             )

@@ -60,11 +60,11 @@ class RefreshRequest(BaseModel):
 
 
 class Grant(BaseModel):
-    access_token: SecretStr
+    access_token: Annotated[SecretStr, Field(min_length=1, max_length=16384)]
     refresh_token: SecretStr | None = None
     expires_in: Annotated[int | None, Field(gt=0)] = None
     scope: str | None = None
-    token_type: str = "Bearer"
+    token_type: Literal["Bearer", "bearer"] = "Bearer"
 
 
 class TokenResponse(BaseModel):
@@ -99,5 +99,6 @@ class RefreshTicket(BaseModel):
 class ProviderStatus(BaseModel):
     provider: Provider
     configured: bool
+    deployment_allowed: bool
     client_id: str | None
     redirect_uri: str
