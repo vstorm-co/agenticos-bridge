@@ -3,7 +3,7 @@ from pathlib import Path
 from urllib.parse import urlencode
 
 import httpx
-from pydantic import BaseModel, SecretStr, TypeAdapter, ValidationError
+from pydantic import BaseModel, SecretStr, TypeAdapter, ValidationError, field_validator
 
 from agenticos_bridge.config import Settings
 from agenticos_bridge.errors import BridgeError
@@ -28,10 +28,17 @@ class ProviderError(BaseModel):
     error: str | None = None
 
 
+class SlackUserGrant(Grant):
+    @field_validator("token_type", mode="before")
+    @classmethod
+    def normalize_user_type(cls, value: object) -> object:
+        return "Bearer" if value == "user" else value
+
+
 class SlackResponse(BaseModel):
     ok: bool
     error: str | None = None
-    authed_user: Grant | None = None
+    authed_user: SlackUserGrant | None = None
     token_type: str | None = None
     access_token: SecretStr | None = None
     refresh_token: SecretStr | None = None
@@ -114,7 +121,12 @@ class ProviderClient:
                         return parsed.authed_user
                     if parsed.token_type != "user" or parsed.access_token is None:
                         raise BridgeError("invalid_provider_response", upstream=True)
-                    return Grant.model_validate(parsed.model_dump())
+                    return Grant(
+                        access_token=parsed.access_token,
+                        refresh_token=parsed.refresh_token,
+                        expires_in=parsed.expires_in,
+                        scope=parsed.scope,
+                    )
                 return Grant.model_validate_json(body)
         except httpx.HTTPError:
             raise BridgeError("provider_unavailable", upstream=True) from None
