@@ -1,0 +1,25 @@
+name: checks
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    container: python:3.15-slim
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: 0.11.2
+      - run: uv sync --frozen
+      - run: uv run ruff check src tests
+      - run: uv run ruff format --check src tests
+      - run: uv run ty check src
+      - run: uv run pytest tests/test_oauth.py -q
+      - run: uv export --frozen --no-dev --no-emit-project --output-file /tmp/bridge-requirements.txt
+      - run: uvx pip-audit==2.10.1 -r /tmp/bridge-requirements.txt --require-hashes --disable-pip
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - run: docker build -t agenticos-bridge:test .

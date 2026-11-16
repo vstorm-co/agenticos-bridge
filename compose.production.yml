@@ -1,0 +1,44 @@
+services:
+  bridge:
+    build: .
+    restart: unless-stopped
+    env_file: /opt/agenticos-bridge/config/bridge.env
+    ports:
+      - "127.0.0.1:8060:8060"
+    networks: [gateway]
+    read_only: true
+    tmpfs: ["/tmp:size=8m,noexec,nosuid"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 192m
+    memswap_limit: 192m
+    cpus: 0.5
+    pids_limit: 64
+    ulimits:
+      core: 0
+    healthcheck:
+      test: ["CMD", "/app/.venv/bin/python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8060/healthz', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: local
+      options:
+        max-size: 2m
+        max-file: "2"
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: traefik_webgateway
+      traefik.http.routers.agenticos-bridge.rule: Host(`bridge-agenticos.testapp.ovh`)
+      traefik.http.routers.agenticos-bridge.entrypoints: websecure
+      traefik.http.routers.agenticos-bridge.tls.certresolver: letsencrypt
+      traefik.http.routers.agenticos-bridge.observability.accesslogs: "false"
+      traefik.http.routers.agenticos-bridge.middlewares: bridge-ratelimit,bridge-inflight
+      traefik.http.middlewares.bridge-ratelimit.ratelimit.average: "10"
+      traefik.http.middlewares.bridge-ratelimit.ratelimit.burst: "30"
+      traefik.http.middlewares.bridge-inflight.inflightreq.amount: "64"
+      traefik.http.services.agenticos-bridge.loadbalancer.server.port: "8060"
+networks:
+  gateway:
+    external: true
+    name: traefik_webgateway
