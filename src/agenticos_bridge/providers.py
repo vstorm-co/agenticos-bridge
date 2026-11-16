@@ -3,7 +3,7 @@ from pathlib import Path
 from urllib.parse import urlencode
 
 import httpx
-from pydantic import BaseModel, TypeAdapter, ValidationError
+from pydantic import BaseModel, SecretStr, TypeAdapter, ValidationError
 
 from agenticos_bridge.config import Settings
 from agenticos_bridge.errors import BridgeError
@@ -24,13 +24,17 @@ TOKEN: dict[Provider, str] = {
 }
 
 
+class ProviderError(BaseModel):
+    error: str | None = None
+
+
 class SlackResponse(BaseModel):
     ok: bool
     error: str | None = None
     authed_user: Grant | None = None
     token_type: str | None = None
-    access_token: str | None = None
-    refresh_token: str | None = None
+    access_token: SecretStr | None = None
+    refresh_token: SecretStr | None = None
     expires_in: int | None = None
     scope: str | None = None
 
@@ -89,10 +93,22 @@ class ProviderClient:
                     if len(body) > 65536:
                         raise BridgeError("invalid_provider_response", upstream=True)
                 if not response.is_success:
+                    try:
+                        refused = ProviderError.model_validate_json(body)
+                    except ValidationError:
+                        raise BridgeError("provider_refused_grant", upstream=True) from None
+                    if refused.error in {"invalid_grant", "invalid_refresh_token", "token_revoked"}:
+                        raise BridgeError("provider_grant_revoked", upstream=True)
                     raise BridgeError("provider_refused_grant", upstream=True)
                 if provider == "slack":
                     parsed = SlackResponse.model_validate_json(body)
                     if not parsed.ok:
+                        if parsed.error in {
+                            "invalid_grant",
+                            "invalid_refresh_token",
+                            "token_revoked",
+                        }:
+                            raise BridgeError("provider_grant_revoked", upstream=True)
                         raise BridgeError("provider_refused_grant", upstream=True)
                     if parsed.authed_user is not None:
                         return parsed.authed_user
