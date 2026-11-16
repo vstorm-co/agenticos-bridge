@@ -56,3 +56,11 @@ application's distribution and security review are complete.
 For submission, use truthful descriptions of transient bridge token processing
 and direct self-hosted data access. Record the provider's actual submitted/pending
 status and review reference without secrets. Do not claim a draft was submitted.
+
+
+Deployment access is invitation-only. Read README's console access procedure. Use
+`python -m agenticos_bridge.cli` to initialize, issue, list or revoke access; no HTTP
+management exists. Keep the private registry and its revocations across releases.
+Do not issue a production key without an actual reviewed request/agreement reference.
+Keys bind one origin, provider allowlist and expiry; raw keys are displayed once and
+must be delivered securely. CLI access must never persist or print OAuth account tokens.

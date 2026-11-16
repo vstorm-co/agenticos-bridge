@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Self
 from urllib.parse import urlsplit
 
@@ -21,8 +22,7 @@ class Settings(BaseSettings):
     microsoft_client_secret: SecretStr = SecretStr("")
     slack_client_id: str = ""
     slack_client_secret: SecretStr = SecretStr("")
-    # Exact origins; empty means a deliberately closed service until enrollment policy is set.
-    allowed_origins: list[str] = []
+    access_registry: Path = Path("/data/access.sqlite3")
 
     @field_validator("public_url")
     @classmethod
