@@ -93,6 +93,8 @@ def test_round_trip_and_rotation(config, provider):
                 "refresh_token": "rotated-refresh",
                 "expires_in": 3600,
             }
+        if provider == "slack":
+            grant["token_type"] = "user"
         return httpx.Response(
             200, json={"ok": True, "authed_user": grant} if provider == "slack" else grant
         )
@@ -297,5 +299,35 @@ def test_revocation_is_explicit_and_never_exposes_provider_error(config, provide
                     ExchangeRequest(provider=provider, ticket=ticket, code_verifier=VERIFIER)
                 )
             assert "SECRET" not in str(refused.value)
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("token_type", ["user", "bot"])
+def test_slack_top_level_user_rotation_never_substitutes_a_bot_grant(config, token_type):
+    async def scenario():
+        service, client = build(
+            config,
+            lambda req: httpx.Response(
+                200,
+                json={
+                    "ok": True,
+                    "token_type": token_type,
+                    "access_token": "slack-access",
+                    "refresh_token": "slack-refresh",
+                    "expires_in": 43200,
+                    "scope": "channels:read",
+                },
+            ),
+        )
+        async with client:
+            if token_type == "user":
+                grant = await service.providers.refresh("slack", "old-refresh")
+                assert grant.access_token.get_secret_value() == "slack-access"
+                assert grant.refresh_token.get_secret_value() == "slack-refresh"
+                assert grant.token_type == "Bearer"
+            else:
+                with pytest.raises(BridgeError, match="invalid_provider_response"):
+                    await service.providers.refresh("slack", "old-refresh")
 
     asyncio.run(scenario())
