@@ -55,4 +55,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - run: docker build -t agenticos-bridge:test .
+      - name: Build from restrictive source permissions
+        run: |
+          chmod -R go-rwx src
+          docker build -t agenticos-bridge:test .
+      - name: Verify the unprivileged runtime can read the artifact
+        run: docker run --rm --entrypoint /app/.venv/bin/python agenticos-bridge:test -c "import agenticos_bridge.main; from pathlib import Path; assert Path('/app/src/agenticos_bridge/public/index.html').read_text().startswith('<!doctype html>')"
