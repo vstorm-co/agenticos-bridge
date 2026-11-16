@@ -4,7 +4,7 @@ Stateless OAuth API; Python 3.15, FastAPI, Pydantic, httpx, cryptography.
 Read README.md and SECURITY.md before changing protocol behavior.
 
 - Routes adapt HTTP; OAuthService owns the flow; ProviderClient owns fixed provider transport.
-- No database, frontend, generic URL proxy, user-token persistence, or request-body logging.
+- No database, account dashboard, generic URL proxy, user-token persistence, or request-body logging. Public verification pages are static assets.
 - Use cryptography's authenticated encryption. Never invent crypto primitives.
 - No retries of authorization-code exchange or rotating refresh after unknown acceptance.
 - Credentials and ticket keys are secrets. Keep them out of git, errors and logs.

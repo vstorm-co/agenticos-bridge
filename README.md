@@ -1,9 +1,19 @@
-# AgenticOS Bridge
+<p align="center"><img src="src/agenticos_bridge/public/assets/logo.svg" width="72" height="72" alt="AgenticOS"></p>
+
+<h1 align="center">AgenticOS Bridge</h1>
+<p align="center">Shared OAuth for your own AgenticOS instance.</p>
+
+<p align="center">
+<a href="https://github.com/vstorm-co/agenticos-bridge/actions/workflows/checks.yml"><img src="https://github.com/vstorm-co/agenticos-bridge/actions/workflows/checks.yml/badge.svg?branch=main" alt="Checks"></a>
+<a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="Apache 2.0 license"></a>
+<a href="https://bridge-agenticos.testapp.ovh"><img src="https://img.shields.io/badge/service-HTTPS-green" alt="HTTPS service"></a>
+</p>
+
+**[Service](https://bridge-agenticos.testapp.ovh) · [Privacy](https://bridge-agenticos.testapp.ovh/privacy/) · [Support](https://bridge-agenticos.testapp.ovh/support/) · [Security](SECURITY.md)**
 
 API-only OAuth broker for self-hosted [AgenticOS](https://github.com/vstorm-co/agenticos).
 A deployment can use **Continue with AgenticOS**, or keep its own provider application
-credentials and bypass this service completely. There is no frontend, database,
-account directory, business API proxy, or user-token storage here.
+credentials and bypass this service completely. The service includes small public information, privacy, terms and support pages for provider verification. There is no account dashboard, database, account directory, business API proxy or user-token storage here.
 
 ## Trust and data flow
 
@@ -112,3 +122,17 @@ uv run ty check src
 
 These cover protocol/security contracts using mocked provider HTTP responses, not a
 claim that real provider verification or a penetration test has been completed.
+
+
+## Contributing
+
+Read [AGENTS.md](AGENTS.md) for the architecture and development boundaries and
+[SECURITY.md](SECURITY.md) for the threat model. Provider additions need official
+protocol documentation, allowlisted scopes and endpoints, code/refresh contract
+tests, negative proof tests and operator setup instructions. Changes to token
+storage, callback trust or public enrollment are architectural changes.
+
+The repository follows AgenticOS team permissions, protected main, immutable tags,
+secret scanning/push protection and CodeQL security checks. Required CI jobs are
+adapted to this service: lint, test, image and Security Scan. There is no Node or
+frontend build toolchain; the public pages are static assets served by FastAPI.

@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Connect your accounts · AgenticOS Bridge</title><meta name="description" content="Connect Google, Microsoft and Slack to your self-hosted AgenticOS with a shared OAuth application or your own credentials.">
+<link rel="canonical" href="https://bridge-agenticos.testapp.ovh/"><link rel="icon" href="/assets/logo.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/assets/site.css"><meta name="color-scheme" content="light dark"></head>
+<body><a class="skip" href="#main">Skip to content</a>
+<header class="shell"><a class="brand" href="/"><img src="/assets/logo.svg" width="32" height="32" alt=""><span>AgenticOS <span class="muted">Bridge</span></span></a>
+<nav aria-label="Main navigation"><a href="/#how-it-works">How it works</a><a href="/privacy/">Privacy</a><a href="/support/">Support</a><a href="https://github.com/vstorm-co/agenticos-bridge">GitHub ↗</a></nav></header>
+<main id="main" class="shell">
+<section class="hero"><div class="eyebrow"><span class="dot"></span> FOR SELF-HOSTED AGENTICOS</div>
+<h1>Connect your accounts.<br><span class="muted">Keep your own instance.</span></h1>
+<p class="lead">Connect Google, Microsoft and Slack to AgenticOS without registering an OAuth app for every deployment. Your account tokens stay in your instance’s Vault.</p>
+<div class="actions"><a class="button" href="https://github.com/vstorm-co/agenticos/blob/main/docs/integrations.md">Set up a connection <span aria-hidden="true">↗</span></a><a class="button secondary" href="https://github.com/vstorm-co/agenticos-bridge">Explore the source <span aria-hidden="true">↗</span></a></div>
+<p class="small muted">Start from Chat → Preferences → Your accounts in AgenticOS. Shared sign-in is available when the provider app and your deployment are ready.</p></section>
+<section id="how-it-works" class="how"><div><p class="eyebrow">YOUR CHOICE</p><h2>One account flow.<br>Two ways to connect.</h2></div>
+<div class="choices"><article><span class="number">01</span><div><h3>Continue with AgenticOS</h3><p>Use our shared provider app. The bridge handles OAuth consent and token renewal, then returns your tokens to your AgenticOS instance.</p></div></article>
+<article><span class="number">02</span><div><h3>Use your own credentials</h3><p>Configure your organization’s provider app in AgenticOS. Your instance connects directly, without using this bridge.</p></div></article></div></section>
+<section class="data-flow"><h2>Where your data goes</h2><div class="flow"><span>Your AgenticOS</span><span aria-hidden="true">↔</span><span>OAuth bridge</span><span aria-hidden="true">↔</span><span>Google / Microsoft / Slack</span></div>
+<p>The bridge temporarily processes authorization codes and tokens. It does not store your account tokens or receive your email, files, calendars or chat content. Your instance makes those requests directly to the provider.</p>
+<a class="text-link" href="/privacy/">Read the privacy policy <span aria-hidden="true">→</span></a></section>
+<section class="details"><h2>Permissions stay explicit.</h2><p>You choose the connected products and requested permissions in AgenticOS. Read access is the starting point; writes require a separate choice. Your provider may also require administrator consent or app approval.</p><p>The bridge is a trusted OAuth service: its process handles tokens in memory during exchange and refresh. Learn about that boundary in our <a href="https://github.com/vstorm-co/agenticos-bridge/blob/main/SECURITY.md">security documentation</a>.</p></section>
+</main>
+<footer class="shell"><span>AgenticOS Bridge by <a href="https://vstorm.co">Vstorm</a></span><nav aria-label="Footer"><a href="/privacy/">Privacy policy</a><a href="/terms/">Terms of service</a><a href="/support/">Contact</a></nav></footer>
+</body></html>

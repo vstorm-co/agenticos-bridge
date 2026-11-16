@@ -331,3 +331,20 @@ def test_slack_top_level_user_rotation_never_substitutes_a_bot_grant(config, tok
                     await service.providers.refresh("slack", "old-refresh")
 
     asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("path", ["/", "/privacy/", "/terms/", "/support/"])
+def test_public_service_pages_are_accessible_without_oauth_and_do_not_track(config, path):
+    with TestClient(create_app(config)) as client:
+        response = client.get(path)
+        assert response.status_code == 200
+        assert "AgenticOS" in response.text
+        assert '<html lang="en">' in response.text
+        assert "<script" not in response.text
+        assert "set-cookie" not in response.headers
+        assert "frame-ancestors" in response.headers["content-security-policy"]
+        assert "no-referrer" == response.headers["referrer-policy"]
+        assert "/privacy/" in response.text and "/terms/" in response.text
+        assert client.get("/assets/logo.svg").status_code == 200
+        assert client.get("/assets/site.css").status_code == 200
+        assert client.get("/.env").status_code == 404

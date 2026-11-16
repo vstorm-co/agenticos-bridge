@@ -1,10 +1,12 @@
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import httpx
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from agenticos_bridge.config import Settings
@@ -48,7 +50,11 @@ class SecurityHeaders:
                         (b"cache-control", b"no-store"),
                         (b"referrer-policy", b"no-referrer"),
                         (b"x-content-type-options", b"nosniff"),
-                        (b"content-security-policy", b"default-src 'none'; frame-ancestors 'none'"),
+                        (
+                            b"content-security-policy",
+                            b"default-src 'none'; img-src 'self'; style-src 'self'; "
+                            b"base-uri 'none'; frame-ancestors 'none'; form-action 'none'",
+                        ),
                         (b"strict-transport-security", b"max-age=31536000"),
                     ]
                 )
@@ -90,4 +96,5 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.add_exception_handler(BridgeError, bridge_error)
     app.add_exception_handler(RequestValidationError, invalid_request)
     app.include_router(router)
+    app.mount("/", StaticFiles(directory=Path(__file__).with_name("public"), html=True))
     return app
