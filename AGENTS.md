@@ -12,3 +12,21 @@ Read README.md and SECURITY.md before changing protocol behavior.
 - Fully type owned boundaries. Narrow unknown data; no Any or unchecked casts.
 - Add refusal/regression tests for protocol changes. Run scoped pytest, ruff and ty.
 - Work on a feature branch; Conventional Commits, no AI attribution.
+
+
+## Coding agent entry points
+
+`AGENTS.md` is canonical. `CLAUDE.md` links here for Claude Code. Skills live under
+`.claude/skills/`; `.agents/skills` points there for Codex, and OpenCode discovers
+the same compatibility paths. Keep one source and preserve links; no personal
+model choices, MCP credentials or global permissions belong in this repository.
+
+| Task | Skill |
+| --- | --- |
+| Provider code, grant normalization, callback/refresh security | `oauth-provider` |
+| Shared app registration, branding and provider verification | `provider-app-setup` |
+| Authorized VPS release, health/TLS and safe configuration | `bridge-deploy` |
+
+AgenticOS capabilities and workflow nodes live in the AgenticOS repository. Use its
+`native-integration`, `agent-capability` and `workflow-node` skills rather than
+implementing business API calls or workflow execution in this broker.

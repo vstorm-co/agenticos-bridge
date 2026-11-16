@@ -132,6 +132,11 @@ protocol documentation, allowlisted scopes and endpoints, code/refresh contract
 tests, negative proof tests and operator setup instructions. Changes to token
 storage, callback trust or public enrollment are architectural changes.
 
+Project instructions are shared by Claude Code, Codex and OpenCode through one
+`AGENTS.md` and canonical task skills. See the task table in that file for provider
+code, app registration and deployment. A third-party self-hosted bridge must replace
+the public pages' Vstorm-specific operator and policy details before publishing.
+
 The repository follows AgenticOS team permissions, protected main, immutable tags,
 secret scanning/push protection and CodeQL security checks. Required CI jobs are
 adapted to this service: lint, test, image and Security Scan. There is no Node or
