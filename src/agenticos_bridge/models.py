@@ -77,6 +77,7 @@ class TokenResponse(BaseModel):
 
 
 class FlowTicket(BaseModel):
+    enrollment_id: str
     provider: Provider
     client_id: str
     redirect_uri: str
@@ -91,6 +92,7 @@ class FlowTicket(BaseModel):
 
 
 class RefreshTicket(BaseModel):
+    enrollment_id: str
     provider: Provider
     client_id: str
     token_digest: str

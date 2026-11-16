@@ -67,7 +67,18 @@ class SecurityHeaders:
 async def bridge_error(request: Request, exc: Exception) -> JSONResponse:
     if not isinstance(exc, BridgeError):
         raise exc
-    return JSONResponse({"error": exc.code}, status_code=502 if exc.upstream else 400)
+    return JSONResponse(
+        {"error": exc.code},
+        status_code=(
+            503
+            if exc.code == "access_registry_unavailable"
+            else 403
+            if exc.code == "access_denied"
+            else 502
+            if exc.upstream
+            else 400
+        ),
+    )
 
 
 async def invalid_request(request: Request, exc: Exception) -> JSONResponse:

@@ -13,7 +13,7 @@
 
 API-only OAuth broker for self-hosted [AgenticOS](https://github.com/vstorm-co/agenticos).
 A deployment can use **Continue with AgenticOS**, or keep its own provider application
-credentials and bypass this service completely. The service includes small public information, privacy, terms and support pages for provider verification. There is no account dashboard, database, account directory, business API proxy or user-token storage here.
+credentials and bypass this service completely. The service includes small public information, privacy, terms and support pages for provider verification. There is no account dashboard, account-token directory, business API proxy or user-token storage. A small SQLite access registry stores deployment-key hashes and reviewed enrollment/contact metadata only.
 
 ## Connect from AgenticOS
 
@@ -21,11 +21,15 @@ The native connected-account integration is tracked in
 [AgenticOS #2805](https://github.com/vstorm-co/agenticos/pull/2805). Use a build that
 contains that integration; do not assume an older released console already has it.
 
-1. Configure backend `OAUTH_BRIDGE_URL=https://bridge-agenticos.testapp.ovh`.
-2. The bridge operator enrolls the instance's exact frontend origin and configures
-   the supported provider app. The shared service currently has restricted enrollment.
-3. In AgenticOS, open Chat preferences or your profile's connected accounts, choose
-   a provider and **Continue with AgenticOS**. Select the products and permissions.
+1. Email **dev@vstorm.co** with your organization, exact public AgenticOS origin,
+   intended providers and a security/incident contact. Vstorm reviews requests individually;
+   sending a request does not grant access. Complete the applicable terms/privacy and
+   organizational agreement review before a production key is issued.
+2. After approval, configure backend `OAUTH_BRIDGE_URL=https://bridge-agenticos.testapp.ovh`
+   and `OAUTH_BRIDGE_ACCESS_KEY` using the issued secret. Both default to empty. Keep
+   them in server-side secret configuration, never `NEXT_PUBLIC_*`, agent specs or git.
+3. The option is hidden on ordinary installations. An approved deployment sees
+   **Continue with AgenticOS** only for an allowed, configured provider.
 4. Provider consent returns to your instance; account tokens stay in its Vault.
 
 **Use your own credentials** keeps the organization's own OAuth app and bypasses
@@ -70,13 +74,65 @@ uv run uvicorn agenticos_bridge.main:create_app --factory --app-dir src \
 configured and their exact callback URLs; an unconfigured provider refuses consent.
 `/openapi.json` is the API contract. No app is configured by default.
 
-`BRIDGE_ALLOWED_ORIGINS` is a JSON list of exact AgenticOS origins, e.g.
-`["https://agents.example.com","http://localhost:3000"]`. Empty means closed.
-An explicit `["*"]` opens enrollment to all valid HTTPS AgenticOS callbacks (and
-loopback development callbacks). This permits untrusted deployments to use the shared
-provider app: enable it only after provider distribution/verification and abuse review.
-The bridge never fetches a caller's callback URL. Callback paths are fixed and URLs
-with userinfo, query strings, fragments or control characters are refused.
+## Reviewed deployment access (console only)
+
+There is no public enrollment, wildcard bypass or HTTP key-management endpoint.
+Access is managed from the server terminal; ownership of the host is administrative
+access. Requests use `X-AgenticOS-Bridge-Key` on metadata, start, exchange and refresh.
+The browser callback uses its authenticated encrypted ticket, bound to the enrollment;
+no deployment key appears in a browser URL. Every operation checks current revocation,
+expiry and provider permission. Starts and metadata also check the exact enrolled origin.
+A key is a bearer credential: keep it secret. Origin binding restricts callbacks but
+cannot prove a caller physically runs on that host.
+
+Prepare the private registry once (container UID 65532):
+
+```sh
+sudo install -d -m 700 -o 65532 -g 65532 /opt/agenticos-bridge/access
+docker compose -p agenticos-bridge -f compose.production.yml run --rm --no-deps \
+  --entrypoint /app/.venv/bin/python bridge -m agenticos_bridge.cli init
+```
+
+After reviewing the organization, domain control, use case, provider rules, incident
+contact and applicable agreements, issue a time-limited key:
+
+```sh
+umask 077
+docker compose -p agenticos-bridge -f compose.production.yml exec -T bridge \
+  /app/.venv/bin/python -m agenticos_bridge.cli issue \
+  --origin https://agents.example.com --contact security@example.com \
+  --agreement-reference internal-approved-review-id --provider google --provider microsoft \
+  --days 90 > /secure/location/deployment-key.json
+```
+
+Use an existing protected directory for that output. The secret is returned **once**;
+`list` never returns it or its hash. Deliver it through an agreed secure channel,
+not a public issue or ordinary email. The registry stores SHA-256 of a random
+256-bit secret, an enrollment ID, exact origin, contact, agreement reference,
+providers, issue/expiry timestamps and optional revocation timestamp. It contains
+no account access/refresh tokens or work content. CLI expiry defaults to 90 days
+and is limited to 1–365 days. Approval is an operator decision, not an automated
+claim that the service has passed legal or provider review.
+
+```sh
+docker compose -p agenticos-bridge -f compose.production.yml exec -T bridge \
+  /app/.venv/bin/python -m agenticos_bridge.cli list
+docker compose -p agenticos-bridge -f compose.production.yml exec -T bridge \
+  /app/.venv/bin/python -m agenticos_bridge.cli revoke ENROLLMENT_ID
+```
+
+Revocation applies to subsequent bridge operations without restarting. It cannot
+cancel in-flight provider requests, retract previously issued access tokens or revoke
+the provider grant. Revoke at the provider too after compromise. A new key creates
+a new enrollment; existing managed accounts must reconnect. Back up the registry
+with SQLite's backup interface into encrypted, access-controlled storage and preserve
+revocations on restore. Restoring an old backup can re-enable revoked access; reconcile
+revocations before serving traffic. There is no automatic access-record deletion;
+review retention and remove records/backups under the agreed retention procedure.
+
+**Upgrade:** `BRIDGE_ALLOWED_ORIGINS` no longer grants access. Initialize the registry
+and explicitly issue keys; pre-enrollment pending flows and refresh receipts must
+be replaced by reconnecting accounts. Own-credential connections are unaffected.
 
 ## Provider registration
 
@@ -108,7 +164,7 @@ and [Slack rotation guide](https://docs.slack.dev/authentication/using-token-rot
 memory, swap, PID and concurrency limits. It uses the existing `traefik_webgateway`
 network and routes only `bridge-agenticos.testapp.ovh`. TLS terminates at Traefik;
 the internal Docker hop is plaintext and belongs to the host trust boundary. For a
-multi-host deployment use TLS on that hop too. No user-data volume is mounted.
+multi-host deployment use TLS on that hop too. Only the private deployment-access registry is mounted; no account-token volume is mounted.
 
 Place config at `/opt/agenticos-bridge/config/bridge.env` (root-only, mode 600).
 Keep the encryption key stable across restarts. Rotate it on compromise: all old
@@ -131,7 +187,7 @@ configuration; user tokens are not persisted here.
 ## Checks
 
 ```sh
-uv run pytest tests/test_oauth.py -q
+uv run pytest tests/test_oauth.py tests/test_access.py -q
 uv run ruff check src tests
 uv run ruff format --check src tests
 uv run ty check src

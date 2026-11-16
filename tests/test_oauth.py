@@ -9,6 +9,7 @@ from cryptography.fernet import Fernet
 from fastapi.testclient import TestClient
 from pydantic import SecretStr, ValidationError
 
+from agenticos_bridge.access import AccessRegistry
 from agenticos_bridge.config import Settings
 from agenticos_bridge.errors import BridgeError
 from agenticos_bridge.main import create_app
@@ -22,13 +23,25 @@ from agenticos_bridge.providers import ProviderClient
 from agenticos_bridge.service import OAuthService, challenge
 from agenticos_bridge.tickets import Tickets
 
+KEY = "ab_" + "a" * 32 + "." + "k" * 43
 VERIFIER = "a" * 64
 ORIGIN = "https://customer.example"
 CALLBACK = ORIGIN + "/api/me/mcp-connections/oauth/callback"
 
 
 @pytest.fixture
-def config() -> Settings:
+def config(tmp_path, monkeypatch) -> Settings:
+    monkeypatch.setattr("agenticos_bridge.access.secrets.token_hex", lambda n: "a" * 32)
+    monkeypatch.setattr("agenticos_bridge.access.secrets.token_urlsafe", lambda n: "k" * 43)
+    registry = AccessRegistry(tmp_path / "access.sqlite3")
+    registry.initialize()
+    registry.issue(
+        origin=ORIGIN,
+        contact="test@example.com",
+        agreement_reference="test-terms-v1",
+        providers=["google", "microsoft", "slack"],
+        expires_at=int(time.time()) + 3600,
+    )
     return Settings(
         public_url="https://bridge.example",
         ticket_key=SecretStr(Fernet.generate_key().decode()),
@@ -38,7 +51,7 @@ def config() -> Settings:
         microsoft_client_secret=SecretStr("ms-secret"),
         slack_client_id="slack-app",
         slack_client_secret=SecretStr("slack-secret"),
-        allowed_origins=[ORIGIN],
+        access_registry=registry.path,
         _env_file=None,
     )
 
@@ -60,7 +73,7 @@ def build(config: Settings, handler):
 
 
 def complete(service: OAuthService, provider="google") -> str:
-    started = service.start(request(provider))
+    started = service.start(request(provider), key=KEY)
     state = parse_qs(urlsplit(started.authorization_url).query)["state"][0]
     callback = service.callback(provider, state, "upstream-code-secret", None)
     assert "upstream-code-secret" not in callback
@@ -104,7 +117,7 @@ def test_round_trip_and_rotation(config, provider):
         async with client:
             ticket = complete(service, provider)
             result = await service.exchange(
-                ExchangeRequest(provider=provider, ticket=ticket, code_verifier=VERIFIER)
+                ExchangeRequest(provider=provider, ticket=ticket, code_verifier=VERIFIER), key=KEY
             )
             assert result.access_token == "access-secret"
             assert result.receipt and "refresh-secret" not in result.receipt
@@ -114,7 +127,8 @@ def test_round_trip_and_rotation(config, provider):
                     provider=provider,
                     receipt=result.receipt,
                     refresh_token=SecretStr("refresh-secret"),
-                )
+                ),
+                key=KEY,
             )
             assert rotated.refresh_token == "rotated-refresh"
             assert rotated.receipt != result.receipt
@@ -124,7 +138,8 @@ def test_round_trip_and_rotation(config, provider):
                         provider=provider,
                         receipt=result.receipt,
                         refresh_token=SecretStr("someone-elses-token"),
-                    )
+                    ),
+                    key=KEY,
                 )
             assert len(calls) == 2
 
@@ -142,18 +157,21 @@ def test_proofs_fail_before_provider_call(config):
             for provider, verifier in [("google", "b" * 64), ("microsoft", VERIFIER)]:
                 with pytest.raises(BridgeError):
                     await service.exchange(
-                        ExchangeRequest(provider=provider, ticket=ticket, code_verifier=verifier)
+                        ExchangeRequest(provider=provider, ticket=ticket, code_verifier=verifier),
+                        key=KEY,
                     )
             with pytest.raises(BridgeError):
                 await service.exchange(
                     ExchangeRequest(
                         provider="google", ticket=ticket[:-5] + "xxxxx", code_verifier=VERIFIER
-                    )
+                    ),
+                    key=KEY,
                 )
             config.google_client_id = "replacement-client"
             with pytest.raises(BridgeError):
                 await service.exchange(
-                    ExchangeRequest(provider="google", ticket=ticket, code_verifier=VERIFIER)
+                    ExchangeRequest(provider="google", ticket=ticket, code_verifier=VERIFIER),
+                    key=KEY,
                 )
 
     asyncio.run(scenario())
@@ -162,6 +180,7 @@ def test_proofs_fail_before_provider_call(config):
 def test_ticket_expiry_purpose_issuer_and_confidentiality(config):
     tickets = Tickets(config.ticket_key.get_secret_value(), config.public_url)
     flow = FlowTicket(
+        enrollment_id="a" * 32,
         provider="google",
         client_id="google-app",
         redirect_uri=CALLBACK,
@@ -205,17 +224,19 @@ def test_enrollment_scope_and_provider_readiness(config):
     async def scenario():
         service, client = build(config, lambda req: httpx.Response(500))
         async with client:
-            config.allowed_origins = []
-            with pytest.raises(BridgeError, match="deployment_not_allowed"):
-                service.start(request())
-            config.allowed_origins = [ORIGIN]
+            invalid_origin = request()
+            invalid_origin.redirect_uri = (
+                "https://foreign.example/api/me/mcp-connections/oauth/callback"
+            )
+            with pytest.raises(BridgeError, match="access_denied"):
+                service.start(invalid_origin, key=KEY)
             invalid = request()
             invalid.scopes = ["https://evil.example/admin"]
             with pytest.raises(BridgeError, match="unsupported_scope"):
-                service.start(invalid)
+                service.start(invalid, key=KEY)
             config.google_client_id = ""
             with pytest.raises(BridgeError, match="provider_not_configured"):
-                service.start(request())
+                service.start(request(), key=KEY)
 
     asyncio.run(scenario())
 
@@ -253,7 +274,8 @@ def test_provider_failure_never_returns_upstream_body(config):
                 ticket = complete(service)
                 with pytest.raises(BridgeError) as error:
                     await service.exchange(
-                        ExchangeRequest(provider="google", ticket=ticket, code_verifier=VERIFIER)
+                        ExchangeRequest(provider="google", ticket=ticket, code_verifier=VERIFIER),
+                        key=KEY,
                     )
                 assert "LEAK" not in str(error.value)
 
@@ -264,12 +286,13 @@ def test_metadata_does_not_offer_shared_app_to_unenrolled_origins(config):
     async def scenario():
         service, client = build(config, lambda req: httpx.Response(500))
         async with client:
-            assert all(p.configured and p.deployment_allowed for p in service.metadata(ORIGIN))
-            assert not any(
-                p.deployment_allowed for p in service.metadata("https://foreign.example")
+            assert all(
+                p.configured and p.deployment_allowed for p in service.metadata(ORIGIN, key=KEY)
             )
-            config.allowed_origins = ["*"]
-            assert all(p.deployment_allowed for p in service.metadata("https://foreign.example"))
+            assert not any(
+                p.deployment_allowed for p in service.metadata("https://foreign.example", key=KEY)
+            )
+            assert not any(p.deployment_allowed for p in service.metadata(ORIGIN))
 
     asyncio.run(scenario())
 
@@ -296,7 +319,8 @@ def test_revocation_is_explicit_and_never_exposes_provider_error(config, provide
             ticket = complete(service, provider)
             with pytest.raises(BridgeError, match="provider_grant_revoked") as refused:
                 await service.exchange(
-                    ExchangeRequest(provider=provider, ticket=ticket, code_verifier=VERIFIER)
+                    ExchangeRequest(provider=provider, ticket=ticket, code_verifier=VERIFIER),
+                    key=KEY,
                 )
             assert "SECRET" not in str(refused.value)
 

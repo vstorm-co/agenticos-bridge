@@ -47,3 +47,11 @@ bot substitution, malformed/large responses, mismatched provider/client/purpose,
 expired/tampered tickets, wrong PKCE, rotated receipts and lost refresh responses.
 Update provider setup and privacy/data-flow documentation when behavior changes.
 Mocked protocol tests do not prove live consent or provider approval.
+
+
+Deployment access is invitation-only. Read README's console access procedure. Use
+`python -m agenticos_bridge.cli` to initialize, issue, list or revoke access; no HTTP
+management exists. Keep the private registry and its revocations across releases.
+Do not issue a production key without an actual reviewed request/agreement reference.
+Keys bind one origin, provider allowlist and expiry; raw keys are displayed once and
+must be delivered securely. CLI access must never persist or print OAuth account tokens.
