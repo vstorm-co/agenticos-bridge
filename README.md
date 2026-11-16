@@ -15,6 +15,23 @@ API-only OAuth broker for self-hosted [AgenticOS](https://github.com/vstorm-co/a
 A deployment can use **Continue with AgenticOS**, or keep its own provider application
 credentials and bypass this service completely. The service includes small public information, privacy, terms and support pages for provider verification. There is no account dashboard, database, account directory, business API proxy or user-token storage here.
 
+## Connect from AgenticOS
+
+The native connected-account integration is tracked in
+[AgenticOS #2805](https://github.com/vstorm-co/agenticos/pull/2805). Use a build that
+contains that integration; do not assume an older released console already has it.
+
+1. Configure backend `OAUTH_BRIDGE_URL=https://bridge-agenticos.testapp.ovh`.
+2. The bridge operator enrolls the instance's exact frontend origin and configures
+   the supported provider app. The shared service currently has restricted enrollment.
+3. In AgenticOS, open Chat preferences or your profile's connected accounts, choose
+   a provider and **Continue with AgenticOS**. Select the products and permissions.
+4. Provider consent returns to your instance; account tokens stay in its Vault.
+
+**Use your own credentials** keeps the organization's own OAuth app and bypasses
+this service. Public provider verification is a separate readiness requirement;
+configuration alone is not approval.
+
 ## Trust and data flow
 
 1. AgenticOS creates a PKCE verifier and browser-bound pending flow in its local Vault.
